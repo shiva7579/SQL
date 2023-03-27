@@ -177,92 +177,153 @@ WHERE sex='F')
 SELECT concat('1 : ', round(t1.male::decimal/t2.female, 2)) as ratio 
 FROM t2,t1;
 
-
-
-
-
-
-
-
-
-
-
-SELECT * FROM olympics_history;
-with t1 as(
- SELECT COUNT(DISTINCT(games)) as total_number_of_games
- FROM olympics_history 
- WHERE season='Summer'
-),
+--11.SQL Query to fetch the top 5 athletes who have won the most medals (Medals include gold, silver and bronze).
+WITH t1 AS(
+        SELECT name,count(medal) as medal,team
+         FROM olympics_history
+        WHERE medal <> 'NA'
+        GROUP BY name,team
+        ),
 t2 AS (
-SELECT 	DISTINCT(sport),games
-FROM olympics_history 
- WHERE season='Summer' ORDER BY games
-),
-t3 AS (
-SELECT sport,COUNT(games) as no_of_games
+     SELECT t1.*,DENSE_Rank() OVER(order by medal DESC) as rnk
+	 FROM t1
+	 )
+SELECT t2.name as NAME,
+       t2.team as Team,
+	   t2.medal as Medal
+	   FROM t2
+	   WHERE rnk<=5
+       ORDER BY rnk ;
+	 
+--12.SQL query to fetch the top 5 athletes who have won the most gold medals.
+WITH t1 AS(
+   SELECT name,Count(medal) as medal,team
+	FROM olympics_history
+	WHERE medal='Gold'
+	GROUP BY name,team),
+t2 AS (
+     SELECT t1.*,DENSE_Rank() OVER(order by medal DESC) as rnk
+	 FROM t1
+	 )
+SELECT t2.name as NAME,
+       t2.team as Team,
+	   t2.medal as Gold_Medal
+	   FROM t2
+	   WHERE rnk<=5
+       ORDER BY rnk ;
+
+--13.Write a SQL query to fetch the top 5 most successful countries in olympics. (Success is defined by no of medals won).
+WITH t1 AS(
+   SELECT nr.region,Count(oh.medal) as medal
+	FROM olympics_history oh
+	JOIN olympics_history_noc_regions nr ON oh.noc=nr.noc
+	WHERE medal <>'NA'
+	GROUP BY nr.region),
+t2 AS (
+     SELECT t1.*,DENSE_Rank() OVER(order by medal DESC) as rnk
+	 FROM t1
+	 )
+SELECT t2.region as Country,
+       t2.medal as Total_medal_won,
+	   t2.rnk as Rank
+	   FROM t2
+	   WHERE rnk<=5
+       ORDER BY rnk ;
+
+--14.List down total gold, silver and bronze medals won by each country.
+SELECT nr.region,
+COUNT(CASE WHEN medal='Gold' THEN medal END) AS Total_gold_medal,
+COUNT(CASE WHEN medal='Silver' THEN medal END) AS Total_silver_medal,
+COUNT(CASE WHEN medal='Bronze' THEN medal END) AS Total_bronze_medal
+FROM olympics_history oh
+   JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
+   GROUP BY nr.region
+   ORDER BY Total_gold_medal DESC;
+   
+--15.Write a SQL query to list down the  total gold, silver and bronze medals won by each country corresponding to each olympic games.
+SELECT oh.games,nr.region,
+   COUNT(CASE WHEN medal='Gold' THEN 'medal'  END) AS Gold,
+   COUNT(CASE WHEN medal='Silver' THEN 'medal'  END) AS Silver,
+   COUNT(CASE WHEN medal='Bronze' THEN 'medal'  END) AS Bronze
+   FROM olympics_history oh
+   JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
+   GROUP BY oh.games,nr.region
+   ORDER BY oh.games,nr.region;
+
+--16. Write SQL query to display for each Olympic Games, which country won the highest gold, silver and bronze medals.
+WITH t1 AS(
+SELECT oh.games,nr.region,
+   COUNT(CASE WHEN medal='Gold' THEN 'medal'  END) AS Gold,
+   COUNT(CASE WHEN medal='Silver' THEN 'medal'  END) AS Silver,
+   COUNT(CASE WHEN medal='Bronze' THEN 'medal'  END) AS Bronze,
+   MAX(COUNT(CASE WHEN medal='Gold' THEN 'medal' END)) OVER (Partition by games) AS max_gold,
+   MAX(COUNT(CASE WHEN medal='Silver' THEN 'medal' END)) OVER (Partition by games) AS max_silver, 
+   MAX(COUNT(CASE WHEN medal='Bronze' THEN 'medal' END)) OVER (Partition by games) AS max_bronze 
+   FROM olympics_history oh
+   JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
+   GROUP BY oh.games,nr.region),
+t2 AS (
+SELECT Distinct(t1.games),
+CASE WHEN t1.Gold=t1.max_gold THEN concat(t1.region,'-',t1.max_gold) END AS Max_Gold_by_region,
+CASE WHEN t1.Silver=t1.max_silver THEN concat(t1.region,'-',t1.max_silver) END AS Max_Silver_by_region,
+CASE WHEN t1.Bronze=t1.max_bronze THEN concat(t1.region,'-',t1.max_bronze) END AS Max_Bronze_by_region
+FROM t1)
+SELECT t2.games,
+string_agg(t2.Max_Gold_by_region,' ') AS Max_Gold_by_region,
+string_agg(t2.Max_Silver_by_region,' ') AS Max_Silver_by_region,
+string_agg(t2.Max_Bronze_by_region,' ') AS Max_Bronze_by_region
 FROM t2
-GROUP BY sport
-)
-SELECT * FROM t3
-JOIN t1 ON t1.total_number_of_games=t3.no_of_games;
+GROUP BY t2.games
+ORDER BY t2.games;
+
+--17.Identify which country won the most gold, most silver, most bronze medals and the most medals in each olympic games.
 
 WITH t1 AS(
- SELECT name ,Count(1) as total_medal
- FROM olympics_history
- WHERE medal='Gold'
- GROUP BY name
- ORDER BY total_medal DESC),
+SELECT oh.games,nr.region,
+   COUNT(CASE WHEN medal='Gold' THEN 'medal'  END) AS Gold,
+   COUNT(CASE WHEN medal='Silver' THEN 'medal'  END) AS Silver,
+   COUNT(CASE WHEN medal='Bronze' THEN 'medal'  END) AS Bronze,
+   COUNT(CASE WHEN medal<>'NA' THEN 'medal' END) AS Total_no_of_medal,
+   MAX(COUNT(CASE WHEN medal='Gold' THEN 'medal' END)) OVER (Partition by games) AS max_gold,
+   MAX(COUNT(CASE WHEN medal='Silver' THEN 'medal' END)) OVER (Partition by games) AS max_silver, 
+   MAX(COUNT(CASE WHEN medal='Bronze' THEN 'medal' END)) OVER (Partition by games) AS max_bronze,
+   MAX(COUNT(CASE WHEN medal<>'NA' THEN 'medal' END)) OVER (Partition by games) AS max_medals
+   FROM olympics_history oh
+   JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
+   GROUP BY oh.games,nr.region),
 t2 AS (
-SELECT name,total_medal,Dense_rank() over(order by total_medal DESC) as rnk
-FROM t1 )
-SELECT * FROM t2 
-WHERE rnk<=5;
+SELECT Distinct(t1.games),
+CASE WHEN t1.Gold=t1.max_gold THEN concat(t1.region,'-',t1.max_gold) END AS Max_Gold_by_region,
+CASE WHEN t1.Silver=t1.max_silver THEN concat(t1.region,'-',t1.max_silver) END AS Max_Silver_by_region,
+CASE WHEN t1.Bronze=t1.max_bronze THEN concat(t1.region,'-',t1.max_bronze) END AS Max_Bronze_by_region,
+CASE WHEN t1.Total_no_of_medal=t1.max_medals THEN concat(t1.region,'-',t1.max_medals) END AS Max_Medals_by_region
+FROM t1)
+SELECT t2.games,
+string_agg(t2.Max_Gold_by_region,' ') AS Max_Gold_by_region,
+string_agg(t2.Max_Silver_by_region,' ') AS Max_Silver_by_region,
+string_agg(t2.Max_Bronze_by_region,' ') AS Max_Bronze_by_region,
+string_agg(t2.Max_Medals_by_region,' ') AS Max_Medals_by_region
+FROM t2
+GROUP BY t2.games
+ORDER BY t2.games;
 
-SELECT country
-    ,COALESCE(gold,0) AS gold
-    ,COALESCE(silver,0) AS silver
-    ,COALESCE(bronze,0) AS bronze
- FROM crosstab(
-     'SELECT nr.region as country,
-     oh.medal,
-     count(1) AS total_medal
-     FROM olympics_history oh
-     JOIN olympics_history_noc_regions nr ON nr.noc=oh.noc
-     WHERE oh.medal <> ''NA''
-     GROUP BY country,oh.medal
-     ORDER BY country,oh.medal',
-     'VALUES (''Gold''),(''Silver''),(''Bronze'')')
- AS RESULT (Country varchar,gold bigint,silver bigint,bronze bigint)
- ORDER BY gold DESC,silver DESC,bronze DESC;
-
-  SELECT country
-    	, coalesce(gold, 0) as gold
-    	, coalesce(silver, 0) as silver
-    	, coalesce(bronze, 0) as bronze
-    from crosstab('SELECT nr.region as country
-    			, medal
-    			, count(1) as total_medals
-    			FROM olympics_history oh
-    			JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
-    			where medal <> ''NA''
-    			GROUP BY nr.region,medal
-    			order BY nr.region,medal',
-            'values (''Bronze''), (''Gold''), (''Silver'')')
-    AS RESULT(country varchar, bronze bigint, gold bigint, silver bigint)
-    order by gold desc, silver desc, bronze desc;
-
-
-
-
-
-
-
-
-
-
-
-
-
+--18.Write a SQL Query to fetch details of countries which have won silver or bronze medal but never won a gold medal.
+WITH t1 AS(
+SELECT nr.region,
+   COUNT(CASE WHEN medal='Gold' THEN 'medal'  END) AS Gold,
+   COUNT(CASE WHEN medal='Silver' THEN 'medal'  END) AS Silver,
+   COUNT(CASE WHEN medal='Bronze' THEN 'medal'  END) AS Bronze
+   FROM olympics_history oh
+   JOIN olympics_history_noc_regions nr ON nr.noc = oh.noc
+   GROUP BY nr.region
+   ORDER BY nr.region),
+t2 AS(
+SELECT t1.region,
+	t1.Gold,t1.Silver,t1.Bronze
+	FROM t1
+	WHERE t1.Gold='0' AND (t1.Silver>0 OR t1.Bronze>0))
+SELECT * FROM t2;
+	
 
 
 
