@@ -175,6 +175,25 @@ insert into patient_treatment values (4,'Chemotherapy', 2000);
 insert into patient_treatment values (1,'Biopsy', 5000);
 insert into patient_treatment values (6,'Chemotherapy', 6000);
 
+--patient_logs_table
+DROP TABLE IF EXISTS patient_logs;
+CREATE TABLE patient_logs
+(
+  account_id int,
+  date date,
+  patient_id int
+);
+
+insert into patient_logs values (1, to_date('02-01-2020','dd-mm-yyyy'), 100);
+insert into patient_logs values (1, to_date('27-01-2020','dd-mm-yyyy'), 200);
+insert into patient_logs values (2, to_date('01-01-2020','dd-mm-yyyy'), 300);
+insert into patient_logs values (2, to_date('21-01-2020','dd-mm-yyyy'), 400);
+insert into patient_logs values (2, to_date('21-01-2020','dd-mm-yyyy'), 300);
+insert into patient_logs values (2, to_date('01-01-2020','dd-mm-yyyy'), 500);
+insert into patient_logs values (3, to_date('20-01-2020','dd-mm-yyyy'), 400);
+insert into patient_logs values (1, to_date('04-03-2020','dd-mm-yyyy'), 500);
+insert into patient_logs values (3, to_date('20-01-2020','dd-mm-yyyy'), 450);
+insert into patient_logs values (1, to_date('04-03-2020','dd-mm-yyyy'), 600);
 
 
 --1)Write a SQL Query to fetch all the duplicate records in a table.
@@ -337,9 +356,32 @@ FROM t1
 WHERE category='Prescription';
 
 
+--9.Find the top accounts with the maximum number of unique patients on a monthly basis.
 
-
-
+SELECT * FROM patient_logs;
+WITH t1 AS(
+SELECT *,
+to_char(date,'month') as months
+FROM patient_logs),
+T2 AS(
+SELECT DISTINCT(patient_id),months,account_id
+FROM t1 
+GROUP BY months,account_id,patient_id
+ORDER BY months,account_id
+),
+T3 AS
+(
+SELECT COUNT(account_id) as rown,
+        months,account_id
+FROM t2
+GROUP BY months,account_id),
+T4 AS(
+SELECT months,
+MAX(rown) AS max_no_of_patients
+FROM t3
+GROUP BY months)
+SELECT t3.account_id,t3.months,t4.max_no_of_patients
+FROM t3 JOIN t4 ON t4.months=t3.months AND t4.max_no_of_patients=t3.rown
 
 
 
